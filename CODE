@@ -1,0 +1,132 @@
+import numpy as np 
+import pandas as pd 
+import seaborn as sns
+import matplotlib.pyplot as plt
+print("import complete")
+df = pd.read_excel('DT FINAL data1.xlsx')
+df.head()
+fig, ax = plt.subplots(figsize=(10,10))  
+dataplot = sns.heatmap(df.corr(), cmap="YlGnBu", annot=True)
+data = df[['Date','Open','High','Low','Shares Traded','Turnover']]
+df.set_index("Date", drop=False, inplace=True)
+df.Close.plot(figsize=(14, 7))  
+data.info()
+df.reset_index(drop=True, inplace=True)
+lag_features = ["Open","High", "Low"]
+window1 = 4
+window2 = 7
+
+df_rolled_3d = df[lag_features].rolling(window=window1, min_periods=0)
+df_mean_3d = df_rolled_3d.mean().shift(1).reset_index().astype(np.float32)
+
+df_rolled_7d = df[lag_features].rolling(window=window2, min_periods=0)
+df_std_7d = df_rolled_7d.std().shift(1).reset_index().astype(np.float32)
+
+for feature in lag_features:
+    df[f"{feature}_mean_lag{window1}"] = df_mean_3d[feature].astype('float32')
+    df[f"{feature}_std_lag{window2}"] = df_std_7d[feature].astype('float32')
+df.fillna(df.mean(), inplace=True)
+df.set_index("Date", drop=False, inplace=True)
+df.head()df.Date = pd.to_datetime(df.Date, format="%d-%m-%Y")
+df["month"] = df.Date.dt.month
+df["day"] = df.Date.dt.day
+df["day_of_week"] = df.Date.dt.dayofweek
+df.head()df_train = df[df.Date >= "2021"]
+df_valid = df[df.Date >= "2021"]
+df_valid.shape
+!pip install keras
+import tensorflow
+from sklearn.preprocessing import MinMaxScaler 
+df_train.head().T
+y_train = df_train["Close"]
+scaler=MinMaxScaler(feature_range=(0,1))
+y_train1=scaler.fit_transform(np.array(df_train['Close']).reshape(-1,1))
+y_trainn = df_train["Close"].to_numpy().reshape(-1,1)
+y_valid = df_valid["Close"]
+scaler1=MinMaxScaler(feature_range=(0,1))
+y_valid1=scaler1.fit_transform(np.array(df_valid['Close']).reshape(-1,1))
+y_validn = df_valid["Close"].to_numpy().reshape(-1,1)
+X_train = df_train.drop(columns=["Close"])
+X_train1 = X_train.drop("Date", axis=1)
+X_train1 = (X_train1-X_train1.min())/(X_train1.max()-X_train1.min())
+X_train2 = pd.concat((X_train1, X_train.Date), 1)
+X_valid = df_valid.drop(columns=["Close"])
+X_valid1 = X_valid.drop("Date", axis=1)
+X_valid1 = (X_valid1-X_valid1.min())/(X_valid1.max()-X_valid1.min())
+X_valid2 = pd.concat((X_valid1, X_valid.Date), 1)
+X_train3 = X_train2.drop(columns=['Date']).to_numpy()
+X_valid3 = X_valid2.drop(columns=['Date']).to_numpy()
+y_train1 = y_train1.reshape(-1,1)
+y_valid1 = y_valid1.reshape(-1,1)
+!pip install xgboost
+import xgboost as xgb
+import sklearn
+from xgboost import XGBRegressor
+xgb = XGBRegressor(n_estimators=1000,learning_rate=0.01)
+xgb
+
+xgb.fit(X_train3,y_train1,eval_set=[(X_train3,y_train1),(X_valid3,y_valid1)],early_stopping_rounds=100,verbose=True) # Change verbose to True if you want to see it train
+plt.figure(figsize=(12,8))
+feature_importance = plot_importance(xgb, height=0.9)
+feature_importance
+predicted_results_v = xgb.predict(X_valid3)
+predicted_results_t = xgb.predict(X_train3)
+predicted_results_v= predicted_results_v.reshape(-1, 1)
+predicted_results_t= predicted_results_t.reshape(-1, 1)
+predicted_results_v = scaler1.inverse_transform(predicted_results_v)
+predicted_results_t = scaler.inverse_transform(predicted_results_t)
+plt.figure(figsize=(20,15))
+plt.plot(X_train2.index,list(y_trainn),label="actual Price train",color='b')
+plt.plot(X_train2.index,list(predicted_results_t),label="predicted Price train",color='r')
+plt.plot(X_valid2.index,list(y_validn),label="actual Price valid",color='m')
+plt.plot(X_valid2.index,list(predicted_results_v),label="predicted Price valid",color='g')
+
+plt.xlabel('Date')
+plt.ylabel('Nifty 50 Closing Price')
+plt.legend()
+plt.show()
+xgb = XGBRegressor(n_estimators=1000,learning_rate=0.0099,max_depth=15)
+xgb
+
+xgb.fit(X_train3,y_train1,
+        eval_set=[(X_train3,y_train1),(X_valid3,y_valid1)],
+        early_stopping_rounds=100,
+        verbose=True) # Change verbose to True if you want to see it train
+predicted_results_v = xgb.predict(X_valid3)
+predicted_results_t = xgb.predict(X_train3)
+predicted_results_v= predicted_results_v.reshape(-1, 1)
+predicted_results_t= predicted_results_t.reshape(-1, 1)
+predicted_results_v = scaler1.inverse_transform(predicted_results_v)
+predicted_results_t = scaler.inverse_transform(predicted_results_t)
+predicted_results_v = xgb.predict(X_valid3)
+predicted_results_t = xgb.predict(X_train3)
+predicted_results_v= predicted_results_v.reshape(-1, 1)
+predicted_results_t= predicted_results_t.reshape(-1, 1)
+predicted_results_v = scaler1.inverse_transform(predicted_results_v)
+predicted_results_t = scaler.inverse_transform(predicted_results_t)
+plt.figure(figsize=(20,15))
+plt.plot(X_train2.index,list(y_trainn),label="actual Price train",color='b')
+plt.plot(X_train2.index,list(predicted_results_t),label="predicted Price train",color='r')
+plt.plot(X_valid2.index,list(y_validn),label="actual Price valid",color='m')
+plt.plot(X_valid2.index,list(predicted_results_v),label="predicted Price valid",color='g')
+
+plt.xlabel('Date')
+plt.ylabel('Nifty 50 Closing Price')
+plt.legend()
+plt.show()
+import plotly.graph_objects as go
+
+import pandas as pd
+from datetime import datetime
+
+df = pd.read_excel('DT FINAL data1.xlsx')
+
+fig = go.Figure(data=[go.Candlestick(x=df['Date'],
+                open=df['Open'],
+                high=df['High'],
+                low=df['Low'],
+                close=df['Close'])])
+
+fig.show()
+
+from xgboost import plot_importance
